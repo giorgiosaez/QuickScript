@@ -166,9 +166,9 @@ namespace FindSweetSpot {
                 //Console.WriteLine("Press any key to continue");
                 //Console.ReadLine();
 
-                string[] test = System.Text.RegularExpressions.Regex.Split(StockResidualData, "[0-9]") ;
-                string test1 = test.Where(x => x.Contains("ResidualData")).First();
-                string StockName = test1.Replace("ResidualData.csv", "");
+                //string[] test = System.Text.RegularExpressions.Regex.Split(StockResidualData, "[0-9]") ;
+                //string test1 = StockResidualData.Where(x => x.Contains("ResidualData")).First();
+                string StockName = StockResidualData.Replace("ResidualData.csv", "");
 
                 string[] filePaths = Directory.GetFiles(path);
                 string oldconfig = filePaths.Where(x => x.Contains("Config") && x.Contains(StockName)).First();
