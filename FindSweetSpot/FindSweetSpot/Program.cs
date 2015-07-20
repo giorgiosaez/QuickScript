@@ -139,6 +139,7 @@ namespace FindSweetSpot {
                 int batch_size = 50;
                 Chunks = new List<Chunk>();
                 List<ResidualDataInfo> SortedData = ResidualData.OrderByDescending(x => x.predicted).ToList();
+                if(batch_size > SortedData.Count) batch_size = SortedData.Count;
                 for(int pivot = 0; pivot + batch_size <= SortedData.Count; pivot += batch_size) {
                     double zerocounter = 0;
                     double x = pivot;
