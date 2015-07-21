@@ -123,7 +123,7 @@ namespace FindSweetSpot {
                         string[] values = line.Split(',');
                         double observed = Convert.ToDouble(values[2]);
                         double predicted = Convert.ToDouble(values[3]);
-                        if(predicted > 0.005) ResidualData.Add(new ResidualDataInfo( observed, predicted, ((predicted - observed) > 0.3 * predicted) ? 0 : predicted )); // 30% deviation
+                        if(predicted > 0.01) ResidualData.Add(new ResidualDataInfo( observed, predicted, ((predicted - observed) > 0.3 * predicted) ? 0 : predicted )); // 30% deviation
                     }
                     file.Close();
                 }
