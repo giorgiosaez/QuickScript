@@ -97,33 +97,58 @@ namespace FindSweetSpot {
       
         [STAThread]
         static void Main(string[] args) {
-
-            List<ResidualDataInfo> ResidualData = new List<ResidualDataInfo>();
-            List<Chunk> Chunks = new List<Chunk>();
-            List<string> Stocks = new List<string>();
-            List<string> StockNames = new List<string>();
             // Read the Residual Data and load into memory filter only the espected profit greater than 0.005
             string path = "";
             var dialog = new FolderBrowserDialog();
             using(dialog) {
                 if(dialog.ShowDialog() == DialogResult.OK) {
                     path = dialog.SelectedPath;
-                    string[] filePaths = Directory.GetFiles(path);
-                    Stocks = filePaths.Where(x => x.Contains("ResidualData.csv")).ToList();
-                    // code executed on opened excel file goes here.
                 }
             }
+            //string[] files = Directory.GetFiles(path);
 
-            foreach(string StockResidualData in Stocks) {
+            //string fileName = "test.txt";
+            //string destPath =  $"{path}/Test/";
+            //string destFile = Path.Combine(destPath, fileName);
+            //// Copy the files and overwrite destination files if they already exist.
+            //foreach(string s in files) {
+            //    // Use static Path methods to extract only the file name from the path.
+            //    fileName = Path.GetFileName(s);
+            //    destFile = Path.Combine(destPath, fileName);
+            //    File.Copy(s, destFile, true);
+            //}
+
+            // System.IO.File.Copy(sourceFile, destFile, true);
+
+            calculateSweetspot(path);
+
+
+            Console.WriteLine("Press any key to exit");
+            Console.ReadLine();
+            return;
+        }
+        public static void calculateSweetspot(string path) {
+            List<ResidualDataInfo> ResidualData = new List<ResidualDataInfo>();
+            List<Chunk> Chunks = new List<Chunk>();
+            List<string> ResidualDataFiles = new List<string>();
+            List<string> NNFiles = new List<string>();
+            List<string> ConfigFiles = new List<string>();
+            string[] filePaths = Directory.GetFiles(path);
+
+            ResidualDataFiles = filePaths.Where(x => x.Contains("ResidualData.csv")).ToList();
+            NNFiles = filePaths.Where(x => x.Contains("NN")).ToList();
+            ConfigFiles = filePaths.Where(x => x.Contains("Config")).ToList();
+
+            foreach(string StockResidualData in ResidualDataFiles) {
                 ResidualData = new List<ResidualDataInfo>();
-                if(System.IO.File.Exists(StockResidualData)) {
-                    System.IO.StreamReader file = new System.IO.StreamReader(StockResidualData);
+                if(File.Exists(StockResidualData)) {
+                    StreamReader file = new StreamReader(StockResidualData);
                     string line = file.ReadLine(); // read header
                     while((line = file.ReadLine()) != null) {
                         string[] values = line.Split(',');
                         double observed = Convert.ToDouble(values[3]);
                         double predicted = Convert.ToDouble(values[4]);
-                        if(predicted > 0.01) ResidualData.Add(new ResidualDataInfo( observed, predicted, ((predicted - observed) > 0.3 * predicted) ? 0 : predicted )); // 30% deviation
+                        if(predicted > 0.01) ResidualData.Add(new ResidualDataInfo(observed, predicted, ((predicted - observed) > 0.3 * predicted) ? 0 : predicted)); // 30% deviation
                     }
                     file.Close();
                 }
@@ -133,9 +158,7 @@ namespace FindSweetSpot {
                     Console.ReadLine();
                     return;
                 }
-                if(ResidualData.Count==0) {
-                    continue;
-                }
+                if(ResidualData.Count == 0) { continue; }
 
                 // Residual Data = [ observed, predicted, predicted if condition is met ]
                 int batch_size = 50;
@@ -154,40 +177,33 @@ namespace FindSweetSpot {
 
                     } while((zerocounter / (x - pivot)) <= 0.05 && x < SortedData.Count);    // 98%
                     double score = (x - pivot) * mean; // Lenght of the chunck times the mean of the predicted profit
-                    Chunks.Add(new Chunk((int)pivot, new ResidualDataInfo(SortedData[pivot].observed, SortedData[pivot].predicted, SortedData[pivot].condition),score, (int)x,  new ResidualDataInfo(SortedData[(int)x-1].observed, SortedData[(int)x-1].predicted, SortedData[(int)x-1].condition)));
+                    Chunks.Add(new Chunk((int)pivot, new ResidualDataInfo(SortedData[pivot].observed, SortedData[pivot].predicted, SortedData[pivot].condition), score, (int)x, new ResidualDataInfo(SortedData[(int)x - 1].observed, SortedData[(int)x - 1].predicted, SortedData[(int)x - 1].condition)));
                     if(pivot + batch_size > SortedData.Count) batch_size = SortedData.Count - pivot;
 
                 }
-
                 // Biggest Chunk
                 Chunk SweetSpot = Chunks.OrderByDescending(x => x.score).First();
+                Console.WriteLine("The sweet spot is between [{0} {1}]  [{3} {4}]for file {2} ", SweetSpot.start, SweetSpot.end, StockResidualData, SweetSpot.startinfo.predicted, SweetSpot.endinfo.predicted);
 
-                //foreach(double[] zone in Chunks) {
-                //    Console.WriteLine("zone {0} - {1} lenght = {2} score = {3} mean {4}", zone[0], zone[1], zone[1] - zone[0], zone[2], zone[3]);
-                //}
-                Console.WriteLine("The sweet spot is between [{0} {1}]  [{3} {4}]for file {2} ", SweetSpot.start, SweetSpot.end, StockResidualData, SweetSpot.startinfo.predicted, SweetSpot.endinfo.predicted );
-                //Console.WriteLine("Press any key to continue");
-                //Console.ReadLine();
-
-                //string[] test = System.Text.RegularExpressions.Regex.Split(StockResidualData, "[0-9]") ;
-                //string test1 = StockResidualData.Where(x => x.Contains("ResidualData")).First();
                 string StockName = StockResidualData.Replace("ResidualData.csv", "");
+                StockName = StockName.TrimEnd(new char[] { '4', '1', '2', '3' });
 
-                string[] filePaths = Directory.GetFiles(path);
                 string oldconfig = filePaths.Where(x => x.Contains("Config") && x.Contains(StockName)).First();
                 NNConfig Config = JsonConvert.DeserializeObject<NNConfig>(File.ReadAllText(oldconfig));
                 Config.SweetSpot = new string[] { SweetSpot.startinfo.predicted.ToString(), SweetSpot.endinfo.predicted.ToString() };
 
-                String FileName = String.Format("{0}wSweetSpot", Config.network);
-                String Filepath = String.Format("{0}/{1}", path, FileName);
-                using(System.IO.StreamWriter file = new System.IO.StreamWriter(Filepath)) {
+                //string Filepath = string.Format("{0}\\wSweetSpot\\{1}wSweetSpot", path, Config.network);
+
+                string FileName = string.Format("{0}wSweetSpot", Config.network);
+                string Filepath = string.Format("{0}/{1}", path, FileName);
+
+                //if(!System.IO.Directory.Exists(Directory.GetParent(Filepath).ToString())) {
+                //    System.IO.Directory.CreateDirectory(Filepath);
+                //}
+                using(StreamWriter file = new StreamWriter(Filepath)) {
                     file.Write(JsonConvert.SerializeObject(Config));
                 }
             }
-            
-            Console.WriteLine("Press any key to exit");
-            Console.ReadLine();
-            return;
         }
     }
 }
